@@ -1,0 +1,138 @@
+{% extends "_layout.html" %}
+{% block content %}
+
+<section class="hero card border-0 shadow-sm mb-4 overflow-hidden">
+    <div class="card-body p-4 p-md-5">
+        <div class="row align-items-center g-4">
+            <div class="col-lg-7">
+                <h1 class="display-6 fw-bold mb-2">live bus & train arrivals</h1>
+                <p class="text-secondary mb-0">pick a route and stop to see upcoming etas. report delays or departures
+                    to help
+                    others.</p>
+            </div>
+            <div class="col-lg-5">
+                <form method="post" class="row gy-2 gx-2 align-items-end" onsubmit="return validateform()">
+                    <div class="col-sm-6">
+                        <label class="form-label fw-medium"><i class="bi bi-signpost-2"></i> route</label>
+                        <select id="route_id" name="route_id" class="form-select">
+                            <option value="">select a route…</option>
+                            {% for rid, r in routes.items() %}
+                            <option value="{{ rid }}">{{ rid }} — {{ r.routename }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="form-label fw-medium"><i class="bi bi-geo-alt"></i> stop</label>
+                        <select id="stop_name" name="stop_name" class="form-select" disabled>
+                            <option value="">select a stop…</option>
+                        </select>
+                    </div>
+                    <div class="col-12">
+                        <button class="btn btn-primary w-100"><i class="bi bi-search"></i> show arrivals</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</section>
+
+<div class="row g-4">
+    <div class="col-lg-7">
+        <div class="card shadow-sm">
+            <div class="card-header bg-body-tertiary d-flex align-items-center">
+                <strong class="me-2">all routes</strong>
+                <span class="badge text-bg-secondary">{{ routes|length }}</span>
+                <input id="routefilter" class="form-control form-control-sm ms-auto w-auto"
+                    placeholder="filter by id or name…">
+            </div>
+            <div class="card-body">
+                <ul id="routeslist" class="list-unstyled m-0">
+                    {% for rid, r in routes.items() %}
+                    <li class="py-2 border-bottom d-flex justify-content-between align-items-center route-item"
+                        data-route="{{ rid | lower }}" data-name="{{ r.routename | lower }}">
+                        <span><span class="badge rounded-pill text-bg-primary me-2">{{ rid }}</span>{{ r.routename
+                            }}</span>
+                        <small class="text-secondary">{{ r.stops|length }} stops</small>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-5">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <h5 class="card-title mb-3"><i class="bi bi-clock-history"></i> earliest arrival</h5>
+                <form onsubmit="goearliest(event)" class="row gy-2 gx-2">
+                    <div class="col-md-8">
+                        <input id="earliest-stop" class="form-control" placeholder="stop (e.g. fort)" />
+                    </div>
+                    <div class="col-md-4">
+                        <button class="btn btn-outline-secondary w-100"><i class="bi bi-arrow-right-circle"></i>
+                            check</button>
+                    </div>
+                </form>
+                <p class="text-muted small mt-2 mb-0">tip: try <code>fort</code> or <code>  dehiwala </code> —
+                    capitalization/spaces don’t matter.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    async function fetchstops(routeid) {
+        const sel = document.getelementbyid('stop_name');
+        sel.innerhtml = '<option>loading…</option>';
+        sel.disabled = true;
+        try {
+            const { data } = await axios.get(`/api/stops?route_id=${encodeuricomponent(routeid)}`);
+            if (data.ok) {
+                sel.innerhtml = '<option value="">select a stop…</option>';
+                for (const s of data.stops) {
+                    const opt = document.createelement('option');
+                    opt.value = s; opt.textcontent = s;
+                    sel.appendchild(opt);
+                }
+                sel.disabled = false;
+            } else {
+                sel.innerhtml = '<option>error loading stops</option>';
+            }
+        } catch (e) {
+            sel.innerhtml = '<option>error loading stops</option>';
+        }
+    }
+
+    document.getelementbyid('route_id').addeventlistener('change', (e) => {
+        const rid = e.target.value;
+        const stopsel = document.getelementbyid('stop_name');
+        stopsel.disabled = true;
+        stopsel.innerhtml = '<option value="">select a stop…</option>';
+        if (rid) fetchstops(rid);
+    });
+
+    function validateform() {
+        const r = document.getelementbyid('route_id').value.trim();
+        const s = document.getelementbyid('stop_name').value.trim();
+        if (!r || !s) { showtoast('pick a route and a stop'); return false; }
+        return true;
+    }
+
+    function goearliest(e) {
+        e.preventdefault();
+        const stop = document.getelementbyid('earliest-stop').value.trim();
+        if (!stop) return;
+        window.location = `/stop/${encodeuricomponent(stop)}/earliest`;
+    }
+
+    // robust client-side filter
+    document.getelementbyid('routefilter').addeventlistener('input', (e) => {
+        const q = e.target.value.tolowercase().trim();
+        document.queryselectorall('#routeslist .route-item').foreach(li => {
+            const rid = li.dataset.route || '';
+            const name = li.dataset.name || '';
+            li.style.display = (rid.includes(q) || name.includes(q)) ? '' : 'none';
+        });
+    });
+</script>
+{% endblock %}
