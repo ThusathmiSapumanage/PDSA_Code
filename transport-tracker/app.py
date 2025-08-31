@@ -50,3 +50,66 @@ def api_next_arrival():
         return jsonify({"ok": True, "nextEpoch": None, "vehicleId": None})
     epoch, vid = res
     return jsonify({"ok": True, "nextEpoch": int(epoch), "vehicleId": vid})
+
+@app.route("/api/depart", methods=["POST"])
+def api_depart():
+    d = request.get_json(force=True)
+    ok = tm.record_departure(
+        route_id=d.get("route_id"),
+        vehicle_id=d.get("vehicle_id"),
+        stop_name=d.get("stop_name")
+    )
+    return jsonify({"ok": ok})
+
+@app.route("/api/stops")
+def api_stops():
+    route_id = request.args.get("route_id")
+    if not route_id:
+        return jsonify({"ok": False, "error": "route_id required"}), 400
+    routes = tm.get_routes()
+    route = routes.get(route_id)
+    if not route:
+        return jsonify({"ok": False, "error": "unknown route"}), 404
+    return jsonify({"ok": True, "stops": route.get("stops", [])})
+
+@app.route("/api/vehicle_status")
+def api_vehicle_status():
+    route_id = request.args.get("route_id")
+    if not route_id:
+        return jsonify({"ok": False, "error": "route_id required"}), 400
+    vmap = tm.vehicles.get(route_id)
+    if not vmap:
+        return jsonify({"ok": True, "vehicles": {}})
+    out = {}
+    for vid, v in vmap.items():
+        out[vid] = {
+            "delayMinutes": int(v.get("delayMinutes", 0)),
+            "currentStopIndex": int(v.get("currentStopIndex", 0))
+        }
+    return jsonify({"ok": True, "vehicles": out})
+
+@app.route("/api/reports")
+def api_reports():
+    route_id = request.args.get("route_id")
+    limit = int(request.args.get("limit", 5))
+    if not route_id:
+        return jsonify({"ok": False, "error": "route_id required"}), 400
+    items = tm.get_recent_reports(route_id, limit=limit)
+    return jsonify({"ok": True, "items": items})
+
+@app.route("/api/stop_geo")
+def api_stop_geo():
+    stop_name = request.args.get("stop_name", "")
+    if not stop_name:
+        return jsonify({"ok": False, "error": "stop_name required"}), 400
+    data = tm.get_stop_geo(stop_name)
+    if not data:
+        return jsonify({"ok": False, "error": "location not found"}), 404
+    return jsonify({"ok": True, "geo": data})
+
+@app.route("/api/health", methods=["GET"])
+def api_health():
+    return jsonify({"ok": True})
+
+if _name_ == "_main_":
+    app.run(debug=True)
