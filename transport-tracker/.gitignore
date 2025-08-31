@@ -1,6 +1,24 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.db
+*.sqlite3
 
-# Firebase service account key
-transport-tracker/serviceAccountKey.json
+# Virtual environment
+.venv/
+env/
+venv/
 
-# Firebase service account key
+# IDE
+.vscode/
+.idea/
+
+# Firebase secrets
 serviceAccountKey.json
+*.key.json
+
+# OS
+.DS_Store
+Thumbs.db
