@@ -1,0 +1,333 @@
+{% extends "_layout.html" %}
+{% block content %}
+<div class="d-flex flex-wrap gap-3 justify-content-between align-items-center">
+  <div>
+    <h4 class="mb-0"><i class="bi bi-signpost-2"></i> Route {{ route_id }}</h4>
+    <small class="text-secondary">Stop: <strong>{{ stop_name }}</strong></small>
+  </div>
+  <div class="d-flex align-items-center gap-3">
+    <small class="text-secondary">Last update: <span id="last-updated">now</span></small>
+    <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('incidents', route_id=route_id) }}">
+      <i class="bi bi-exclamation-triangle"></i> Incidents
+    </a>
+  </div>
+</div>
+
+<div class="card shadow-sm mt-3">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0" id="arrivals-table">
+        <thead class="table-light">
+          <tr><th style="width: 140px;">ETA</th><th>Vehicle</th><th style="width: 320px;">Action</th></tr>
+        </thead>
+        <tbody id="arrivals-body">
+          {% for eta, vid in arrivals %}
+          <tr>
+            <td class="fw-medium">{{ eta }}</td>
+            <td><span class="badge text-bg-primary">{{ vid }}</span></td>
+            <td class="d-flex flex-wrap gap-2">
+              <button type="button" class="btn btn-sm btn-outline-primary" onclick="openReport('delay','{{ vid }}')"><i class="bi bi-hourglass-split"></i> Delay</button>
+              <button type="button" class="btn btn-sm btn-outline-danger"  onclick="openReport('breakdown','{{ vid }}')"><i class="bi bi-tools"></i> Breakdown</button>
+              <button type="button" class="btn btn-sm btn-outline-success" onclick="depart('{{ vid }}')"><i class="bi bi-check2-circle"></i> Departed</button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- skeleton -->
+    <div id="skeleton" class="p-3 d-none">
+      <div class="placeholder-glow">
+        <span class="placeholder col-2"></span>
+        <span class="placeholder col-3 ms-2"></span>
+        <span class="placeholder col-4 ms-2"></span>
+      </div>
+      <div class="placeholder-glow mt-2">
+        <span class="placeholder col-1"></span>
+        <span class="placeholder col-3 ms-2"></span>
+        <span class="placeholder col-4 ms-2"></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="p-3">
+    <h6 class="text-secondary mb-2">Recent reports</h6>
+    <div id="recent-reports" class="small text-secondary">Loading…</div>
+  </div>
+</div>
+
+<!-- Map & walking ETA -->
+<div class="card shadow-sm mt-3">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-center">
+      <h6 class="mb-3"><i class="bi bi-geo-alt"></i> Stop on map</h6>
+      <div class="small">
+        <span id="walk-eta" class="badge text-bg-secondary">Walking ETA —</span>
+        <span id="catch-badge" class="badge text-bg-secondary ms-1">Checking…</span>
+      </div>
+    </div>
+    <div id="map" style="height: 360px; border-radius: 12px;"></div>
+    <div class="d-flex justify-content-between align-items-center mt-2 small text-secondary">
+      <div>Distance from you: <span id="dist">—</span></div>
+      <a id="gmapsLink" target="_blank" rel="noopener" class="text-decoration-none">Open in Google Maps</a>
+    </div>
+  </div>
+</div>
+
+<!-- Report Modal -->
+<div class="modal fade" id="reportModal" tabindex="-1" aria-labelledby="reportLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="reportLabel">Submit report</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-3">
+          <div class="col-12">
+            <label class="form-label">Vehicle</label>
+            <input id="report-vehicle" class="form-control" readonly>
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label">Type</label>
+            <select id="report-type" class="form-select">
+              <option value="delay">Delay</option>
+              <option value="breakdown">Breakdown</option>
+              <option value="crowding">Crowding</option>
+            </select>
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label">Severity: <span id="sev-val">3</span></label>
+            <input type="range" id="report-sev" class="form-range" min="1" max="10" value="3" oninput="document.getElementById('sev-val').textContent=this.value">
+          </div>
+          <div class="col-12">
+            <label class="form-label">Message</label>
+            <input id="report-msg" class="form-control" placeholder="Optional note">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-primary" onclick="submitReport()">Submit</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const routeId = "{{ route_id }}";
+  const stopName = "{{ stop_name }}";
+
+  // Modal
+  let reportModal;
+  const modalEl = document.getElementById('reportModal');
+  if (window.bootstrap && modalEl) reportModal = new bootstrap.Modal(modalEl);
+  function ensureModal(){
+    if (!reportModal && window.bootstrap && modalEl) reportModal = new bootstrap.Modal(modalEl);
+  }
+
+  // Actions
+  window.openReport = function(type, vid){
+    ensureModal();
+    document.getElementById('report-vehicle').value = vid;
+    document.getElementById('report-type').value = type;
+    const defaultSev = (type === 'delay') ? 3 : 8;
+    document.getElementById('report-sev').value = defaultSev;
+    document.getElementById('sev-val').textContent = defaultSev;
+    document.getElementById('report-msg').value = '';
+    reportModal?.show();
+  };
+
+  window.submitReport = async function(){
+    const vid = document.getElementById('report-vehicle').value;
+    const type = document.getElementById('report-type').value;
+    const severity = document.getElementById('report-sev').value;
+    const message = document.getElementById('report-msg').value;
+    try{
+      const resp = await axios.post('/api/report', {
+        route_id: routeId, vehicle_id: vid, stop_name: stopName,
+        report_type: type, severity, message
+      });
+      if(resp.data?.ok){
+        showToast('Report submitted');
+        reportModal?.hide();
+        refreshArrivals();
+        loadRecentReports();
+      }else{
+        showToast('Failed to submit report');
+      }
+    }catch{ showToast('Network error submitting report'); }
+  };
+
+  window.depart = async function(vid){
+    try{
+      const resp = await axios.post('/api/depart', { route_id: routeId, vehicle_id: vid, stop_name: stopName });
+      if(resp.data?.ok){ showToast('Marked departed'); refreshArrivals(); }
+      else { showToast('Failed to mark departure'); }
+    }catch{ showToast('Network error marking departure'); }
+  };
+
+  function setLoading(on){
+    document.getElementById('skeleton').classList.toggle('d-none', !on);
+    document.getElementById('arrivals-table').classList.toggle('opacity-50', on);
+  }
+
+  async function refreshArrivals(){
+    setLoading(true);
+    try{
+      const [arrivalsResp, statusResp] = await Promise.all([
+        axios.get(`/api/arrivals?route_id=${encodeURIComponent(routeId)}&stop_name=${encodeURIComponent(stopName)}`),
+        axios.get(`/api/vehicle_status?route_id=${encodeURIComponent(routeId)}`)
+      ]);
+      const arrivals = arrivalsResp.data.ok ? arrivalsResp.data.arrivals : [];
+      const vStatus = (statusResp.data.ok && statusResp.data.vehicles) ? statusResp.data.vehicles : {};
+      const tbody = document.getElementById('arrivals-body');
+      tbody.innerHTML = '';
+      for(const [eta, vid] of arrivals){
+        const delay = (vStatus[vid]?.delayMinutes ?? 0);
+        const delayBadge = delay > 0 ? `<span class="badge text-bg-warning text-dark ms-2">+${delay} min</span>` : '';
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="fw-medium">${eta}</td>
+          <td><span class="badge text-bg-primary">${vid}</span>${delayBadge}</td>
+          <td class="d-flex flex-wrap gap-2">
+            <button type="button" class="btn btn-sm btn-outline-primary" onclick="openReport('delay','${vid}')"><i class="bi bi-hourglass-split"></i> Delay</button>
+            <button type="button" class="btn btn-sm btn-outline-danger"  onclick="openReport('breakdown','${vid}')"><i class="bi bi-tools"></i> Breakdown</button>
+            <button type="button" class="btn btn-sm btn-outline-success" onclick="depart('${vid}')"><i class="bi bi-check2-circle"></i> Departed</button>
+          </td>`;
+        tbody.appendChild(tr);
+      }
+      document.getElementById('last-updated').textContent = new Date().toLocaleTimeString();
+    }finally{ setLoading(false); }
+  }
+
+  async function loadRecentReports(){
+    try{
+      const { data } = await axios.get(`/api/reports?route_id=${encodeURIComponent(routeId)}&limit=5`);
+      const wrap = document.getElementById('recent-reports');
+      if(!data.ok){ wrap.textContent = 'Error loading reports.'; return; }
+      if(!data.items.length){ wrap.innerHTML = `<div class="text-secondary small">No recent reports.</div>`; return; }
+      wrap.innerHTML = data.items.map(r => `
+        <div class="d-flex justify-content-between align-items-center py-1 border-bottom">
+          <div>
+            <span class="badge text-bg-warning text-dark me-2">${r.type}</span>
+            <span class="text-secondary small">sev ${r.severity}</span>
+            <span class="ms-2 small">${r.vehicleId || '-'}</span>
+            <span class="ms-2 small">${r.stop || '-'}</span>
+          </div>
+          <small class="text-secondary">${new Date((r.timestampEpoch||0)*1000).toLocaleTimeString()}</small>
+        </div>`).join('');
+    }catch(e){ console.error(e); }
+  }
+
+  // -------- MAP + ROUTING (Leaflet + OSRM) --------
+  let map, userMarker, stopMarker, routeLine;
+
+  function haversine(a, b){
+    const R = 6371;
+    const dLat = (b.lat - a.lat) * Math.PI/180;
+    const dLng = (b.lng - a.lng) * Math.PI/180;
+    const la1 = a.lat * Math.PI/180;
+    const la2 = b.lat * Math.PI/180;
+    const h = Math.sin(dLat/2)**2 + Math.cos(la1)*Math.cos(la2)*Math.sin(dLng/2)**2;
+    return 2*R*Math.asin(Math.sqrt(h));
+  }
+
+  async function drawWalkingRoute(user, stop){
+    try{
+      // OSRM expects lon,lat
+      const url = `https://router.project-osrm.org/route/v1/foot/${user.lng},${user.lat};${stop.lng},${stop.lat}?overview=full&geometries=geojson`;
+      const r = await fetch(url);
+      const j = await r.json();
+      if(!j.routes || !j.routes.length) return null;
+      const route = j.routes[0];
+      const secs = Math.round(route.duration);
+      const mins = Math.max(1, Math.round(secs/60));
+
+      // polyline
+      if(routeLine) routeLine.remove();
+      routeLine = L.geoJSON(route.geometry, { style: { weight: 4, opacity: 0.7 } }).addTo(map);
+
+      // walking ETA text
+      document.getElementById('walk-eta').textContent = `Walk ~ ${mins} min`;
+
+      return { minutes: mins, seconds: secs };
+    }catch(e){
+      console.warn('OSRM route failed', e);
+      return null;
+    }
+  }
+
+  async function initMap(){
+    try{
+      const geoResp = await axios.get(`/api/stop_geo?stop_name=${encodeURIComponent(stopName)}`);
+      if(!geoResp.data?.ok){ return; }
+      const stop = geoResp.data.geo; // {lat,lng}
+
+      map = L.map('map', { zoomControl: true, attributionControl: true });
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(map);
+
+      stopMarker = L.marker([stop.lat, stop.lng], { title: stopName })
+        .addTo(map)
+        .bindPopup(`<b>${stopName}</b><br/>Route {{ route_id }}`);
+
+      map.setView([stop.lat, stop.lng], 15);
+
+      const gm = document.getElementById('gmapsLink');
+      gm.href = `https://www.google.com/maps/search/?api=1&query=${stop.lat},${stop.lng}`;
+      gm.textContent = "Open in Google Maps";
+
+      if (navigator.geolocation){
+        navigator.geolocation.getCurrentPosition(async pos=>{
+          const you = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          userMarker = L.marker([you.lat, you.lng], { title: "You" }).addTo(map).bindPopup("You are here");
+          const km = haversine(you, stop);
+          document.getElementById('dist').textContent = `${km.toFixed(2)} km`;
+          const group = L.featureGroup([userMarker, stopMarker]);
+          map.fitBounds(group.getBounds().pad(0.2));
+
+          // route & ETA
+          const walk = await drawWalkingRoute(you, stop);
+
+          // compare with next arrival
+          const na = await (await fetch(`/api/next_arrival?route_id=${encodeURIComponent(routeId)}&stop_name=${encodeURIComponent(stopName)}`)).json();
+          const catchEl = document.getElementById('catch-badge');
+          if (na.ok && na.nextEpoch){
+            const minsUntil = Math.max(0, Math.round((na.nextEpoch*1000 - Date.now())/60000));
+            const canMake = walk ? walk.minutes <= minsUntil : null;
+            if (canMake === null){
+              catchEl.className = "badge text-bg-secondary";
+              catchEl.textContent = "Next in ~" + minsUntil + " min";
+            } else if (canMake){
+              catchEl.className = "badge text-bg-success";
+              catchEl.textContent = `You can make it (${minsUntil} min left)`;
+            } else {
+              catchEl.className = "badge text-bg-danger";
+              catchEl.textContent = `Might miss it (${minsUntil} min left)`;
+            }
+          } else {
+            catchEl.className = "badge text-bg-secondary";
+            catchEl.textContent = "No upcoming vehicle";
+          }
+        }, err=>{
+          console.warn("Geolocation denied/failed:", err);
+        }, { enableHighAccuracy: true, timeout: 8000 });
+      }
+    }catch(e){
+      console.error("Map init failed", e);
+    }
+  }
+
+  // kick off
+  refreshArrivals();
+  loadRecentReports();
+  initMap();
+  setInterval(refreshArrivals, 8000);
+});
+</script>
+{% endblock %}
