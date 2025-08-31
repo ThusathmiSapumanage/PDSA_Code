@@ -39,3 +39,19 @@ class MinHeap:
             if r < n and self._a[r][0] < self._a[s][0]: s = r
             if s != i: self._swap(i, s); i = s
             else: break
+
+# Lochana
+class HashMap:
+    def __init__(self):
+        self._map = {}
+
+    def set(self, k, v): self._map[k] = v
+    def get(self, k, default=None): return self._map.get(k, default)
+    def has(self, k): return k in self._map
+    def delete(self, k): self._map.pop(k, None)
+    def keys(self): return list(self._map.keys())
+    def values(self): return list(self._map.values())
+    def items(self): return list(self._map.items())
+    def __len__(self): return len(self._map)
+    def __iter__(self): return iter(self._map.items())
+
