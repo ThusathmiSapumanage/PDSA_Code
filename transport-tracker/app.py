@@ -29,6 +29,30 @@ def index():
     routes = tm.get_routes()
     return render_template("index.html", routes=routes)
 
+# Loch
+@app.route("/route/<route_id>/stop/<stop_name>")
+def route_view(route_id, stop_name):
+    arrivals = tm.get_next_arrivals(route_id, stop_name, count=5)
+    return render_template("route.html", route_id=route_id, stop_name=stop_name, arrivals=arrivals)
+
+# Loch
+@app.route("/stop/<stop_name>/earliest")
+def stop_view(stop_name):
+    ea = tm.get_earliest_arrival_at_stop(stop_name)
+    if not ea:
+        flash("No arrivals found for this stop.")
+        return redirect(url_for("index"))
+    eta, r_id, v_id = ea
+    return render_template("stop.html", stop_name=stop_name, eta=eta, route_id=r_id, vehicle_id=v_id)
+
+# Loch
+@app.route("/incidents/<route_id>")
+def incidents(route_id):
+    items = tm.get_recent_reports(route_id, limit=100)
+    return render_template("incidents.html", route_id=route_id, items=items)
+
+
+
 # ---------- APIs ----------
 @app.route("/api/arrivals")
 def api_arrivals():
@@ -50,3 +74,17 @@ def api_next_arrival():
         return jsonify({"ok": True, "nextEpoch": None, "vehicleId": None})
     epoch, vid = res
     return jsonify({"ok": True, "nextEpoch": int(epoch), "vehicleId": vid})
+
+# Loch
+@app.route("/api/report", methods=["POST"])
+def api_report():
+    d = request.get_json(force=True)
+    ok = tm.submit_report(
+        route_id=d.get("route_id"),
+        vehicle_id=d.get("vehicle_id"),
+        report_type=d.get("report_type"),
+        severity=int(d.get("severity", 1)),
+        message=d.get("message", ""),
+        stop_name=d.get("stop_name")
+    )
+    return jsonify({"ok": ok})
