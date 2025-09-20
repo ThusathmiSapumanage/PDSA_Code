@@ -129,4 +129,29 @@ document.getElementById('routeFilter').addEventListener('input', (e)=>{
   });
 });
 </script>
+<script>
+const filterInput = document.getElementById('routeFilter');
+const list = document.getElementById('routesList');
+const items = Array.from(list.querySelectorAll('.route-item'));
+
+const norm = s => (s || '').toLowerCase().replace(/\s+/g, ' ').trim();
+
+function applyFilter() {
+  const q = norm(filterInput.value);
+  items.forEach(li => {
+    // search in data attrs *and* visible text as a fallback
+    const hay = norm(
+      (li.dataset.route || '') + ' ' +
+      (li.dataset.name  || '') + ' ' +
+      li.textContent
+    );
+    li.classList.toggle('d-none', q && !hay.includes(q));
+  });
+}
+
+filterInput.addEventListener('input', applyFilter);
+filterInput.addEventListener('keyup', applyFilter);   // extra safety for some browsers
+applyFilter(); // initialize (shows all)
+</script>
+
 {% endblock %}

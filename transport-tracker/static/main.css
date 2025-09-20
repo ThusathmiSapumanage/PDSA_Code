@@ -1,6 +1,5 @@
 :root { --radius: 16px; }
 .card { border-radius: var(--radius); }
-.navbar { backdrop-filter: saturate(120%) blur(6px); }
 .placeholder { display: inline-block; height: 1.2rem; border-radius: 6px; }
 .hero { background: linear-gradient(135deg, rgba(13,110,253,.08), rgba(32,201,151,.08)); }
 .table td, .table th { vertical-align: middle; }
