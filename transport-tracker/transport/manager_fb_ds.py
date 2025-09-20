@@ -131,7 +131,6 @@ class TransportManagerFB:
         return [(_fmt_hhmm(dt), vid) for dt, vid in options[:count]]
 
     def get_next_arrival_epoch(self, route_id: str, stop_name: str) -> Optional[Tuple[int, str]]:
-        """Return (epoch_seconds, vehicle_id) for next arrival at stop on route."""
         rid = self._resolve_route(route_id)
         if not rid:
             return None
@@ -178,7 +177,6 @@ class TransportManagerFB:
         if not rid:
             return False
 
-        # write report
         pref = rtdb_ref(f"/reports/{rid}").push()
         pref.set({
             "reportId": pref.key,
@@ -191,21 +189,17 @@ class TransportManagerFB:
             "stop": self._resolve_stop(rid, stop_name) if stop_name else None
         })
 
-        # apply effects to vehicles
         vref = rtdb_ref(f"/vehicles/{rid}")
         vdict = vref.get() or {}
         if not vdict:
             self.refresh_from_db()
             return True
 
-        targets = []
-        if vehicle_id:
-            if vehicle_id not in vdict:
-                self.refresh_from_db()
-                return False
-            targets = [vehicle_id]
-        else:
-            targets = list(vdict.keys())
+        if vehicle_id and vehicle_id not in vdict:
+            self.refresh_from_db()
+            return False
+
+        targets = [vehicle_id] if vehicle_id else list(vdict.keys())
 
         if report_type == "delay":
             add = min(5 * max(int(severity), 1), 50)
@@ -216,7 +210,6 @@ class TransportManagerFB:
             for vid in targets:
                 cur = int((vdict[vid] or {}).get("delayMinutes", 0))
                 vref.child(vid).update({"delayMinutes": cur + 60})
-        # crowding -> informational only
 
         self.refresh_from_db()
         return True
@@ -251,20 +244,30 @@ class TransportManagerFB:
         return False
 
     def get_recent_reports(self, route_id: str, limit: int = 100):
+        """Return recent report dicts, defensively handling bad shapes."""
         rid = self._resolve_route(route_id)
         if not rid:
             return []
         data = rtdb_ref(f"/reports/{rid}").get() or {}
-        items = list(data.values())
-        items.sort(key=lambda x: x.get("timestampEpoch", 0), reverse=True)
-        return items[:limit]
+        items = []
+        if isinstance(data, dict):
+            items = [v for v in data.values() if isinstance(v, dict)]
+        elif isinstance(data, list):
+            items = [v for v in data if isinstance(v, dict)]
+        # else: leave empty
 
-    # Geocoding for stops (read from DB)
+        items.sort(key=lambda x: int(x.get("timestampEpoch", 0)), reverse=True)
+        try:
+            lim = max(0, int(limit or 0))
+        except Exception:
+            lim = 100
+        return items[:lim]
+
+    # (Kept for compatibility; UI no longer calls this)
     def get_stop_geo(self, stop_name: str):
         canon = self._resolve_stop_any(stop_name) or stop_name
         data = rtdb_ref(f"/stopsGeo/{canon}").get()
         if not data:
-            # fallback try a few casings in the same node dump
             data = rtdb_ref("/stopsGeo").get() or {}
             data = data.get(canon) or data.get(stop_name) or data.get(stop_name.strip().title())
-        return data  # {"lat":..,"lng":..} or None
+        return data

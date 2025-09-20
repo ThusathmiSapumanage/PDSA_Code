@@ -129,16 +129,6 @@ def api_reports():
     items = tm.get_recent_reports(route_id, limit=limit)
     return jsonify({"ok": True, "items": items})
 
-@app.route("/api/stop_geo")
-def api_stop_geo():
-    stop_name = request.args.get("stop_name", "")
-    if not stop_name:
-        return jsonify({"ok": False, "error": "stop_name required"}), 400
-    data = tm.get_stop_geo(stop_name)
-    if not data:
-        return jsonify({"ok": False, "error": "location not found"}), 404
-    return jsonify({"ok": True, "geo": data})
-
 @app.route("/api/health", methods=["GET"])
 def api_health():
     return jsonify({"ok": True})

@@ -69,7 +69,7 @@
             <button class="btn btn-outline-secondary w-100"><i class="bi bi-arrow-right-circle"></i> Check</button>
           </div>
         </form>
-        <p class="text-muted small mt-2 mb-0">Tip: try <code>fort</code> or <code>  deHiWaLa </code> — capitalization/spaces don’t matter.</p>
+        <p class="text-muted small mt-2 mb-0">Tip: try <code>fort</code> or <code>deHiWaLa</code> — capitalization/spaces don’t matter.</p>
       </div>
     </div>
   </div>
@@ -93,7 +93,7 @@ async function fetchStops(routeId){
     }else{
       sel.innerHTML = '<option>Error loading stops</option>';
     }
-  }catch(e){
+  }catch{
     sel.innerHTML = '<option>Error loading stops</option>';
   }
 }
@@ -120,7 +120,6 @@ function goEarliest(e){
   window.location = `/stop/${encodeURIComponent(stop)}/earliest`;
 }
 
-// robust client-side filter
 document.getElementById('routeFilter').addEventListener('input', (e)=>{
   const q = e.target.value.toLowerCase().trim();
   document.querySelectorAll('#routesList .route-item').forEach(li=>{
