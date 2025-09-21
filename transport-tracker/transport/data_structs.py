@@ -1,99 +1,104 @@
-class Queue:
-    def __init__(self):
-        self._data = []
-        self._head = 0
-
-    def push(self, x): self._data.append(x)
-
-    def pop(self):
-        if self.empty(): raise IndexError("pop from empty queue")
-        x = self._data[self._head]
-        self._head += 1
-        if self._head > 32 and self._head * 2 > len(self._data):
-            self._data = self._data[self._head:]
-            self._head = 0
-        return x
-
-    def front(self):
-        return None if self.empty() else self._data[self._head]
-
-    def empty(self): return self._head >= len(self._data)
-
-    def __len__(self): return len(self._data) - self._head
-
-
-class Stack:
-    def __init__(self, maxlen=None):
-        self._data = []
-        self._maxlen = maxlen
-
-    def push(self, x):
-        self._data.append(x)
-        if self._maxlen and len(self._data) > self._maxlen:
-            self._data.pop(0)
-
-    def pop(self):
-        if self.empty(): raise IndexError("pop from empty stack")
-        return self._data.pop()
-
-    def peek(self): return None if self.empty() else self._data[-1]
-    def empty(self): return len(self._data) == 0
-    def __len__(self): return len(self._data)
-
 class MinHeap:
     def __init__(self):
-        self._a = []
+        self._heap = []
 
-    def _parent(self, i): return (i - 1) // 2
-    def _left(self, i): return 2 * i + 1
-    def _right(self, i): return 2 * i + 2
+    def insert(self, item):
+        """Add item to the heap"""
+        self._heap.append(item)
+        self._heapify_up(len(self._heap) - 1)
 
-    def _swap(self, i, j): self._a[i], self._a[j] = self._a[j], self._a[i]
+    def extract_min(self):
+        """Remove and return the smallest item"""
+        if self.is_empty():
+            raise IndexError("extract_min from empty heap")
+        
+        if len(self._heap) == 1:
+            return self._heap.pop()
+        
+        # Store the minimum item to return
+        min_item = self._heap[0]
+        # Move last item to root
+        self._heap[0] = self._heap.pop()
+        # Restore heap property
+        self._heapify_down(0)
+        
+        return min_item
 
-    def push(self, item):
-        self._a.append(item)
-        self._sift_up(len(self._a) - 1)
+    def peek_min(self):
+        """Return the smallest item without removing it"""
+        if self.is_empty():
+            return None
+        return self._heap[0]
 
-    def pop(self):
-        if self.empty(): raise IndexError("pop from empty heap")
-        self._swap(0, len(self._a) - 1)
-        x = self._a.pop()
-        if not self.empty(): self._sift_down(0)
-        return x
+    def is_empty(self):
+        """Check if heap is empty"""
+        return len(self._heap) == 0
 
-    def peek(self): return None if self.empty() else self._a[0]
-    def empty(self): return len(self._a) == 0
+    def size(self):
+        """Return number of items in heap"""
+        return len(self._heap)
 
-    def _sift_up(self, i):
-        while i > 0:
-            p = self._parent(i)
-            if self._a[i][0] < self._a[p][0]:
-                self._swap(i, p); i = p
-            else:
+    def _parent_index(self, index):
+        """Get parent index"""
+        return (index - 1) // 2
+
+    def _left_child_index(self, index):
+        """Get left child index"""
+        return 2 * index + 1
+
+    def _right_child_index(self, index):
+        """Get right child index"""
+        return 2 * index + 2
+
+    def _swap(self, i, j):
+        """Swap items at two positions"""
+        self._heap[i], self._heap[j] = self._heap[j], self._heap[i]
+
+    def _heapify_up(self, index):
+        """Move item up to maintain heap property"""
+        while index > 0:
+            parent_idx = self._parent_index(index)
+            # Compare first element of tuple (for your datetime tuples)
+            if self._heap[index][0] >= self._heap[parent_idx][0]:
                 break
+            self._swap(index, parent_idx)
+            index = parent_idx
 
-    def _sift_down(self, i):
-        n = len(self._a)
+    def _heapify_down(self, index):
+        """Move item down to maintain heap property"""
+        heap_size = len(self._heap)
+        
         while True:
-            l, r = self._left(i), self._right(i)
-            s = i
-            if l < n and self._a[l][0] < self._a[s][0]: s = l
-            if r < n and self._a[r][0] < self._a[s][0]: s = r
-            if s != i: self._swap(i, s); i = s
-            else: break
+            smallest_idx = index
+            left_idx = self._left_child_index(index)
+            right_idx = self._right_child_index(index)
+            
+            # Find smallest among parent and children
+            if (left_idx < heap_size and 
+                self._heap[left_idx][0] < self._heap[smallest_idx][0]):
+                smallest_idx = left_idx
+                
+            if (right_idx < heap_size and 
+                self._heap[right_idx][0] < self._heap[smallest_idx][0]):
+                smallest_idx = right_idx
+            
+            # If parent is smallest, heap property is satisfied
+            if smallest_idx == index:
+                break
+                
+            # Otherwise, swap and continue
+            self._swap(index, smallest_idx)
+            index = smallest_idx
 
-# Lochana
-class HashMap:
-    def __init__(self):
-        self._map = {}
-
-    def set(self, k, v): self._map[k] = v
-    def get(self, k, default=None): return self._map.get(k, default)
-    def has(self, k): return k in self._map
-    def delete(self, k): self._map.pop(k, None)
-    def keys(self): return list(self._map.keys())
-    def values(self): return list(self._map.values())
-    def items(self): return list(self._map.items())
-    def __len__(self): return len(self._map)
-    def __iter__(self): return iter(self._map.items())
-
+    # Keep compatibility with existing code
+    def push(self, item):
+        self.insert(item)
+    
+    def pop(self):
+        return self.extract_min()
+    
+    def peek(self):
+        return self.peek_min()
+    
+    def empty(self):
+        return self.is_empty()
