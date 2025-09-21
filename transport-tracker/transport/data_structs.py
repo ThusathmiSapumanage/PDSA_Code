@@ -102,3 +102,134 @@ class MinHeap:
     
     def empty(self):
         return self.is_empty()
+
+# Lochana changes start
+class HashMap:
+    def __init__(self, initial_capacity=16):
+        self._capacity = initial_capacity
+        self._size = 0
+        self._buckets = [[] for _ in range(self._capacity)]
+        self._load_factor_threshold = 0.75
+
+    def put(self, key, value):
+        """Insert or update key-value pair"""
+        # Resize if load factor too high
+        if self._size >= self._capacity * self._load_factor_threshold:
+            self._resize()
+        
+        bucket_index = self._hash(key)
+        bucket = self._buckets[bucket_index]
+        
+        # Update existing key
+        for i, (k, v) in enumerate(bucket):
+            if k == key:
+                bucket[i] = (key, value)
+                return
+        
+        # Add new key-value pair
+        bucket.append((key, value))
+        self._size += 1
+
+    def get(self, key, default=None):
+        """Get value for key, return default if not found"""
+        bucket_index = self._hash(key)
+        bucket = self._buckets[bucket_index]
+        
+        for k, v in bucket:
+            if k == key:
+                return v
+        return default
+
+    def contains(self, key):
+        """Check if key exists in the map"""
+        bucket_index = self._hash(key)
+        bucket = self._buckets[bucket_index]
+        
+        for k, v in bucket:
+            if k == key:
+                return True
+        return False
+
+    def remove(self, key):
+        """Remove key-value pair"""
+        bucket_index = self._hash(key)
+        bucket = self._buckets[bucket_index]
+        
+        for i, (k, v) in enumerate(bucket):
+            if k == key:
+                bucket.pop(i)
+                self._size -= 1
+                return
+
+    def keys(self):
+        """Return list of all keys"""
+        result = []
+        for bucket in self._buckets:
+            for k, v in bucket:
+                result.append(k)
+        return result
+
+    def values(self):
+        """Return list of all values"""
+        result = []
+        for bucket in self._buckets:
+            for k, v in bucket:
+                result.append(v)
+        return result
+
+    def items(self):
+        """Return list of all key-value pairs"""
+        result = []
+        for bucket in self._buckets:
+            for k, v in bucket:
+                result.append((k, v))
+        return result
+
+    def size(self):
+        """Return number of key-value pairs"""
+        return self._size
+
+    def is_empty(self):
+        """Check if map is empty"""
+        return self._size == 0
+
+    def _hash(self, key):
+        """Simple hash function"""
+        if key is None:
+            return 0
+        
+        hash_value = 0
+        key_str = str(key)
+        for char in key_str:
+            hash_value = (hash_value * 31 + ord(char)) % self._capacity
+        return hash_value
+
+    def _resize(self):
+        """Resize the hash table when load factor gets too high"""
+        old_buckets = self._buckets
+        self._capacity *= 2
+        self._size = 0
+        self._buckets = [[] for _ in range(self._capacity)]
+        
+        # Rehash all existing items
+        for bucket in old_buckets:
+            for key, value in bucket:
+                self.put(key, value)
+
+    # Keep compatibility with existing code
+    def set(self, key, value):
+        self.put(key, value)
+    
+    def has(self, key):
+        return self.contains(key)
+    
+    def delete(self, key):
+        self.remove(key)
+    
+    def __len__(self):
+        return self.size()
+    
+    def __iter__(self):
+        return iter(self.items())
+
+# Lochana changes end
