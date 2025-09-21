@@ -19,7 +19,14 @@
         {% if items %}
         {% for r in items %}
         <tr>
-          <td>{{ (r.timestampEpoch or 0) | int | datetime }}</td>
+          <td>
+            <time
+              data-epoch="{{ (r.timestampEpoch or 0) | int }}"
+              title="{{ (r.timestampEpoch or 0) | int | datetime }}"
+            >
+              {{ (r.timestampEpoch or 0) | int | datetime }}
+            </time>
+          </td>
           <td><span class="badge text-bg-warning text-dark">{{ r.type }}</span></td>
           <td><span class="badge text-bg-danger">{{ r.severity }}</span></td>
           <td>{{ r.vehicleId or '-' }}</td>

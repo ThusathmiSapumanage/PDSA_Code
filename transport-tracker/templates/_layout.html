@@ -13,7 +13,7 @@
     <link rel="stylesheet" href="static/main.css">
   </head>
   <body class="bg-body">
-    <nav class="navbar navbar-expand-lg border-bottom sticky-top">
+    <nav class="navbar navbar-expand-lg border-bottom">
       <div class="container">
         <a class="navbar-brand fw-bold d-flex align-items-center gap-2" href="{{ url_for('index') }}">
           <i class="bi bi-bus-front"></i> Transport Tracker
@@ -69,6 +69,34 @@
           root.setAttribute('data-bs-theme', next);
           localStorage.setItem(key, next);
         });
+      })();
+    </script>
+
+    <!-- Relative "time ago" formatter for any element with data-epoch (UNIX seconds) -->
+    <script>
+      (function(){
+        const rel = (sec) => {
+          const now = Math.floor(Date.now()/1000);
+          let diff = Math.max(0, now - Number(sec || 0));
+          if (diff < 60) return `${diff}s ago`;
+          const m = Math.floor(diff/60);
+          if (m < 60) return `${m} min${m>1?'s':''} ago`;
+          const h = Math.floor(m/60);
+          if (h < 24) return `${h} hour${h>1?'s':''} ago`;
+          const d = Math.floor(h/24);
+          return `${d} day${d>1?'s':''} ago`;
+        };
+
+        function tick(){
+          document.querySelectorAll('[data-epoch]').forEach(el=>{
+            const val = el.getAttribute('data-epoch');
+            if (val && !Number.isNaN(Number(val))) {
+              el.textContent = rel(val);
+            }
+          });
+        }
+        tick();                 // initial render
+        setInterval(tick, 30000); // update every 30s
       })();
     </script>
   </body>

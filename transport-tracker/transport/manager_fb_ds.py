@@ -271,3 +271,4 @@ class TransportManagerFB:
             data = rtdb_ref("/stopsGeo").get() or {}
             data = data.get(canon) or data.get(stop_name) or data.get(stop_name.strip().title())
         return data
+    
