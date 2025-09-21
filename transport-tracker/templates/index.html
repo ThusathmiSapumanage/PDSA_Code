@@ -35,6 +35,7 @@
 </section>
 
 <div class="row g-4">
+  <!-- Left: Routes -->
   <div class="col-lg-7">
     <div class="card shadow-sm">
       <div class="card-header bg-body-tertiary d-flex align-items-center">
@@ -57,8 +58,9 @@
     </div>
   </div>
 
+  <!-- Right: Earliest + Recent -->
   <div class="col-lg-5">
-    <div class="card shadow-sm h-100">
+    <div class="card shadow-sm mb-4">
       <div class="card-body">
         <h5 class="card-title mb-3"><i class="bi bi-clock-history"></i> Earliest arrival</h5>
         <form onsubmit="goEarliest(event)" class="row gy-2 gx-2">
@@ -70,6 +72,38 @@
           </div>
         </form>
         <p class="text-muted small mt-2 mb-0">Tip: try <code>fort</code> or <code>deHiWaLa</code> — capitalization/spaces don’t matter.</p>
+      </div>
+    </div>
+
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h5 class="card-title mb-0"><i class="bi bi-clock"></i> Recent searches</h5>
+          <button id="clearRecent" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-trash"></i> Clear
+          </button>
+        </div>
+
+        <div id="recentWrap">
+          {% if recent and recent|length > 0 %}
+            <ul class="list-group list-group-flush">
+              {% for r, s in recent %}
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                  <div>
+                    <span class="badge rounded-pill text-bg-primary me-2">{{ r }}</span>
+                    <span class="text-secondary">{{ s }}</span>
+                  </div>
+                  <a class="btn btn-sm btn-outline-primary"
+                     href="{{ url_for('route_view', route_id=r, stop_name=s) }}">
+                    Open
+                  </a>
+                </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <div class="text-secondary small">No recent searches yet.</div>
+          {% endif %}
+        </div>
       </div>
     </div>
   </div>
@@ -109,7 +143,7 @@ document.getElementById('route_id').addEventListener('change', (e)=>{
 function validateForm(){
   const r = document.getElementById('route_id').value.trim();
   const s = document.getElementById('stop_name').value.trim();
-  if(!r || !s){ showToast('Pick a route and a stop'); return false; }
+  if(!r || !s){ showToast && showToast('Pick a route and a stop'); return false; }
   return true;
 }
 
@@ -129,7 +163,9 @@ document.getElementById('routeFilter').addEventListener('input', (e)=>{
   });
 });
 </script>
+
 <script>
+// Robust text normalization
 const filterInput = document.getElementById('routeFilter');
 const list = document.getElementById('routesList');
 const items = Array.from(list.querySelectorAll('.route-item'));
@@ -139,19 +175,28 @@ const norm = s => (s || '').toLowerCase().replace(/\s+/g, ' ').trim();
 function applyFilter() {
   const q = norm(filterInput.value);
   items.forEach(li => {
-    // search in data attrs *and* visible text as a fallback
-    const hay = norm(
-      (li.dataset.route || '') + ' ' +
-      (li.dataset.name  || '') + ' ' +
-      li.textContent
-    );
+    const hay = norm((li.dataset.route || '') + ' ' + (li.dataset.name  || '') + ' ' + li.textContent);
     li.classList.toggle('d-none', q && !hay.includes(q));
   });
 }
 
 filterInput.addEventListener('input', applyFilter);
-filterInput.addEventListener('keyup', applyFilter);   // extra safety for some browsers
-applyFilter(); // initialize (shows all)
+filterInput.addEventListener('keyup', applyFilter);
+applyFilter(); // initialize
+
+// Clear recent searches (calls API)
+document.getElementById('clearRecent')?.addEventListener('click', async () => {
+  try {
+    const resp = await axios.post('/api/recent_searches', { action: 'clear' });
+    if (resp.data?.ok) {
+      const wrap = document.getElementById('recentWrap');
+      wrap.innerHTML = '<div class="text-secondary small">No recent searches yet.</div>';
+      showToast && showToast('Cleared recent searches');
+    }
+  } catch {
+    showToast && showToast('Failed to clear recent searches');
+  }
+});
 </script>
 
 {% endblock %}

@@ -27,7 +27,8 @@ def index():
             return redirect(url_for("route_view", route_id=route_id, stop_name=stop_name))
         flash("Please enter both Route ID and Stop name.")
     routes = tm.get_routes()
-    return render_template("index.html", routes=routes)
+    recent = tm.get_recent_searches()
+    return render_template("index.html", routes=routes, recent=recent)
 
 @app.route("/route/<route_id>/stop/<stop_name>")
 def route_view(route_id, stop_name):
@@ -128,6 +129,23 @@ def api_reports():
         return jsonify({"ok": False, "error": "route_id required"}), 400
     items = tm.get_recent_reports(route_id, limit=limit)
     return jsonify({"ok": True, "items": items})
+
+@app.route("/api/recent_searches", methods=["GET", "POST"])
+def api_recent_searches():
+    """
+    GET  -> returns [{route_id, stop_name}, ...]
+    POST -> clears the stack with body {"action": "clear"}
+    """
+    if request.method == "GET":
+        items = tm.get_recent_searches()
+        out = [{"route_id": r or "", "stop_name": s or ""} for (r, s) in items]
+        return jsonify({"ok": True, "items": out})
+
+    data = request.get_json(silent=True) or {}
+    if str(data.get("action", "")).lower() == "clear":
+        tm.clear_recent_searches()
+        return jsonify({"ok": True})
+    return jsonify({"ok": False, "error": "unknown action"}), 400
 
 @app.route("/api/health", methods=["GET"])
 def api_health():

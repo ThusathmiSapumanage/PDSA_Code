@@ -96,6 +96,17 @@ class TransportManagerFB:
                 return canon
         return None
 
+    # ---------- small utility: push with de-dupe ----------
+    def _push_recent(self, route_id: Optional[str], stop_name: Optional[str]) -> None:
+        """Push a (route_id, stop_name) if it's not identical to the last entry."""
+        try:
+            last = self.recent_searches._data[-1] if self.recent_searches._data else None
+        except Exception:
+            last = None
+        pair = (route_id or "", stop_name or "")
+        if last != pair:
+            self.recent_searches.push(pair)
+
     # ---------- Queries ----------
     def get_routes(self) -> Dict[str, dict]:
         out = {}
@@ -106,7 +117,10 @@ class TransportManagerFB:
     def get_next_arrivals(self, route_id: str, stop_name: str, count: int = 3) -> List[Tuple[str, str]]:
         rid = self._resolve_route(route_id)
         canon_stop = self._resolve_stop(route_id, stop_name)
-        self.recent_searches.push((route_id, stop_name))
+
+        # record recent search even if it turns out invalid (helps users correct quickly)
+        self._push_recent(route_id, stop_name)
+
         if not rid or not canon_stop:
             return []
 
@@ -164,10 +178,19 @@ class TransportManagerFB:
         if not heap or heap.empty():
             return None
         eta_dt, rid, vid = heap.peek()
+
+        # NEW: record the (route, stop) that produced the earliest result
+        # so hitting /stop/<stop>/earliest also shows up in Recent searches
+        self._push_recent(rid, stop_name)
+
         return (_fmt_hhmm(eta_dt), rid, vid)
 
     def get_recent_searches(self):
         return list(self.recent_searches._data)
+
+    def clear_recent_searches(self):
+        """Reset the recent searches stack."""
+        self.recent_searches = Stack(maxlen=20)
 
     # ---------- Mutations ----------
     def submit_report(self, route_id: str, vehicle_id: Optional[str], report_type: str,
@@ -271,4 +294,3 @@ class TransportManagerFB:
             data = rtdb_ref("/stopsGeo").get() or {}
             data = data.get(canon) or data.get(stop_name) or data.get(stop_name.strip().title())
         return data
-    
