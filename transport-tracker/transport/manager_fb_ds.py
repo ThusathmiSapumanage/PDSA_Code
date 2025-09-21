@@ -186,7 +186,9 @@ class TransportManagerFB:
         return (_fmt_hhmm(eta_dt), rid, vid)
 
     def get_recent_searches(self):
-        return list(self.recent_searches._data)
+        # return newest first
+        return list(reversed(self.recent_searches._data))
+
 
     def clear_recent_searches(self):
         """Reset the recent searches stack."""
