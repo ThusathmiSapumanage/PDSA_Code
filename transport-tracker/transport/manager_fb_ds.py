@@ -34,7 +34,7 @@ class TransportManagerFB:
         self.route_alias = {}
         self.stop_alias = {}
         for rid, r in routes.items():
-            self.routes.set(rid, r)
+            self.routes.put(rid, r)
             self.route_alias[rid.lower()] = rid
             self.route_alias[rid.upper()] = rid
             stops = (r or {}).get("stops", []) or []
@@ -46,8 +46,8 @@ class TransportManagerFB:
         for rid, vdict in (vehicles_tree or {}).items():
             inner = HashMap()
             for vid, v in (vdict or {}).items():
-                inner.set(vid, v)
-            self.vehicles.set(rid, inner)
+                inner.put(vid, v)
+            self.vehicles.put(rid, inner)
 
         # min-heaps per stop for fastest lookup
         self.stop_heaps = HashMap()
@@ -67,8 +67,8 @@ class TransportManagerFB:
                             heap: MinHeap = self.stop_heaps.get(key)
                             if not heap:
                                 heap = MinHeap()
-                                self.stop_heaps.set(key, heap)
-                            heap.push((eta_dt, rid, vid))
+                                self.stop_heaps.put(key, heap)
+                            heap.insert((eta_dt, rid, vid))
 
     # ---------- Helpers ----------
     def _resolve_route(self, route_id: str) -> Optional[str]:
@@ -99,10 +99,7 @@ class TransportManagerFB:
     # ---------- small utility: push with de-dupe ----------
     def _push_recent(self, route_id: Optional[str], stop_name: Optional[str]) -> None:
         """Push a (route_id, stop_name) if it's not identical to the last entry."""
-        try:
-            last = self.recent_searches._data[-1] if self.recent_searches._data else None
-        except Exception:
-            last = None
+        last = self.recent_searches.top()
         pair = (route_id or "", stop_name or "")
         if last != pair:
             self.recent_searches.push(pair)
@@ -133,9 +130,9 @@ class TransportManagerFB:
             q = Queue()
             for i, item in enumerate(v.get("schedule", [])):
                 if i >= idx:
-                    q.push(item)
-            while not q.empty():
-                item = q.pop()
+                    q.enqueue(item)
+            while not q.is_empty():
+                item = q.dequeue()
                 if _norm_stop(item.get("stop")) == _norm_stop(canon_stop):
                     eta = datetime.fromtimestamp(int(item["timeEpoch"]), tz=timezone.utc) + timedelta(minutes=delay)
                     if eta >= now:
@@ -175,20 +172,18 @@ class TransportManagerFB:
     def get_earliest_arrival_at_stop(self, stop_name: str) -> Optional[Tuple[str, str, str]]:
         key = _norm_stop(stop_name)
         heap: MinHeap = self.stop_heaps.get(key)
-        if not heap or heap.empty():
+        if not heap or heap.is_empty():
             return None
-        eta_dt, rid, vid = heap.peek()
+        eta_dt, rid, vid = heap.peek_min()
 
-        # NEW: record the (route, stop) that produced the earliest result
-        # so hitting /stop/<stop>/earliest also shows up in Recent searches
+        # Record the (route, stop) that produced the earliest result
         self._push_recent(rid, stop_name)
 
         return (_fmt_hhmm(eta_dt), rid, vid)
 
     def get_recent_searches(self):
         # return newest first
-        return list(reversed(self.recent_searches._data))
-
+        return list(reversed(self.recent_searches.to_list()))
 
     def clear_recent_searches(self):
         """Reset the recent searches stack."""
@@ -279,8 +274,6 @@ class TransportManagerFB:
             items = [v for v in data.values() if isinstance(v, dict)]
         elif isinstance(data, list):
             items = [v for v in data if isinstance(v, dict)]
-        # else: leave empty
-
         items.sort(key=lambda x: int(x.get("timestampEpoch", 0)), reverse=True)
         try:
             lim = max(0, int(limit or 0))
@@ -288,7 +281,7 @@ class TransportManagerFB:
             lim = 100
         return items[:lim]
 
-    # (Kept for compatibility; UI no longer calls this)
+    # (Kept for data access; UI may still call this)
     def get_stop_geo(self, stop_name: str):
         canon = self._resolve_stop_any(stop_name) or stop_name
         data = rtdb_ref(f"/stopsGeo/{canon}").get()
