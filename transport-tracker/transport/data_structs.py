@@ -102,3 +102,60 @@ class MinHeap:
     
     def empty(self):
         return self.is_empty()
+
+class Queue:
+    def __init__(self):
+        self._items = []
+        self._front_index = 0
+
+    def enqueue(self, item):
+        """Add item to the back of the queue"""
+        self._items.append(item)
+
+    def dequeue(self):
+        """Remove and return item from the front of the queue"""
+        if self.is_empty():
+            raise IndexError("dequeue from empty queue")
+        
+        item = self._items[self._front_index]
+        self._front_index += 1
+        
+        # Clean up when too much space is wasted
+        if self._front_index > 32 and self._front_index * 2 > len(self._items):
+            self._items = self._items[self._front_index:]
+            self._front_index = 0
+            
+        return item
+
+    def front(self):
+        """Return front item without removing it"""
+        if self.is_empty():
+            return None
+        return self._items[self._front_index]
+
+    def rear(self):
+        """Return rear item without removing it"""
+        if self.is_empty():
+            return None
+        return self._items[-1]
+
+    def is_empty(self):
+        """Check if queue is empty"""
+        return self._front_index >= len(self._items)
+
+    def size(self):
+        """Return number of items in queue"""
+        return len(self._items) - self._front_index
+
+    # Keep compatibility with existing code
+    def push(self, item):
+        self.enqueue(item)
+    
+    def pop(self):
+        return self.dequeue()
+    
+    def empty(self):
+        return self.is_empty()
+    
+    def __len__(self):
+        return self.size()
